@@ -1,0 +1,22 @@
+Actin
+Bud Site
+Bud Neck
+Cell Periphery
+Cytoplasm
+Cytoplasmic Foci
+Eisosomes
+Endoplasmic Reticulum
+Endosome
+Golgi
+Lipid Particles
+Mitochondria
+Mitotic Spindle
+None
+Nuclear Periphery
+Nuclear Periphery Foci
+Nucleolus
+Nucleus
+Peroxisomes
+Punctate Nuclear
+Vacuole
+Vacuole Periphery

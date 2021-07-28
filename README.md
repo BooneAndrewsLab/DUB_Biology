@@ -67,6 +67,11 @@ python segment_and_predict.py -i example/images -r r01 -o example/ -n Image_pred
 #### Input Requirements
 * A folder having sub-directories containing result files from the above pipeline.
 
+#### Scripts
+_Author: Carles Pons_
+- get_t_statistics.paper.r
+- lib_mixture_model.r
+
 #### Usage
 ```
 Rscript get_t_statistics.paper.r

@@ -2,9 +2,10 @@
 
 This repository contains scripts and example datasets for the paper: ________
 
-
+&nbsp;
 ### Prerequisites
-Python 2.7: https://www.python.org/downloads
+- Python 2.7: https://www.python.org/downloads
+- R: https://www.r-project.org/
 
 ### Installation
 Clone the repository
@@ -17,16 +18,15 @@ Install required packages
 ```
 pip install -r requirements.txt
 ```
+&nbsp;
+## Running the Pipeline: Segmentation + [DeepLoc](https://github.com/okraus/DeepLoc) + Protein Abundance
 
-
-### Input Requirements 
+#### Input Requirements 
 * A folder containing microscopy images taken from Phenix High-Content Screening System.
 Example images can be found in example/images
 * For each run, the user needs to specify which row to process
 
-### Running the Pipeline: Segmentation + DeepLoc + Protein Abundance
-
-**segment_and_predict.py**
+_**segment_and_predict.py**_
 
 This script is a multi-step pipeline that consists of running single cell Segmentation, DeepLoc prediction and Protein Abundance
 measurement. The output file contains the x and y coordinates of the cells on each of the images as well as the protein abundance and 
@@ -61,3 +61,13 @@ Example usage when using the default values:
 ```
 python segment_and_predict.py -i example/images -r r01 -o example/ -n Image_predictions.csv -f example/mapping_sheet.csv
 ```
+&nbsp;
+## Determining significant Localization Changes
+
+#### Input Requirements
+* A folder having sub-directories containing result files from the above pipeline.
+
+#### Usage
+```
+Rscript get_t_statistics.paper.r
+``` 

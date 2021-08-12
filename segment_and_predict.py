@@ -30,7 +30,7 @@
 
 from skimage.measure import regionprops
 from segment_and_predict_lib import *
-from skimage.io import imsave
+from skimage.io import imsave, imread
 import tensorflow as tf
 from PIL import Image
 import pandas as pd
@@ -417,7 +417,29 @@ def getPredictions(xy_data, outdir, outfile, mainrow, identifiers=None, map_df=N
     locSession.close()
 
 
-def getCoordinates(row_images, farred, SCREEN_NUMCHANNELS):
+def save_image_array(measurements, img, frame, width, height, image_names, frame_number, x_coord, y_coord, intensity):
+    for i in range(len(measurements)):
+        centroid = measurements[i].centroid
+        center_x = int(centroid[1])
+        center_y = int(centroid[0])
+        loc_left = center_x - crop_halfsize
+        loc_upper = center_y - crop_halfsize
+        loc_right = center_x + crop_halfsize
+        loc_lower = center_y + crop_halfsize
+
+        if not_on_border(width, height, loc_left, loc_upper, loc_right, loc_lower):
+            mean_intensity = round(measurements[i].mean_intensity, 2)
+            image_names.append(img)
+            frame_number.append(frame)
+            x_coord.append(center_x)
+            y_coord.append(center_y)
+            intensity.append(mean_intensity)
+
+    return image_names, frame_number, x_coord, y_coord, intensity
+
+
+def getCoordinates(row_images, labeled_dir, farred, SCREEN_NUMCHANNELS):
+    print("get coordinates, labeled path: %s" % labeled_dir)
     image_names = []
     frame_number = []
     x_coord = []
@@ -456,85 +478,64 @@ def getCoordinates(row_images, farred, SCREEN_NUMCHANNELS):
 
             if img_type == 'opera1' or img_type == 'phenix':
                 print('On image %s' % img)
-                labeled_path = os.path.join(outdir, "%s_labeled.png" % img.split('.')[0])
-
                 # Size of full image
                 width, height = image_red.size
 
-                # Run mixture model to find foreground, background and middleground pixel clusters
-                if opt_blur == 'True':
-                    image = preprocessed_image
-                else:
-                    if (farred == 'True') and (SCREEN_NUMCHANNELS==3):
-                        print("using farred channel to segment %s" % farred)
-                        image = farred_array
+                if not labeled_dir:
+                    # Run mixture model to find foreground, background and middleground pixel clusters
+                    if opt_blur=='True':
+                        image = preprocessed_image
                     else:
-                        image = red
+                        if (farred=='True') and (SCREEN_NUMCHANNELS==3):
+                            print("using farred channel to segment %s"%farred)
+                            image = farred_array
+                        else:
+                            image = red
 
-                image = image.astype('uint16')
-                labeled = run_segmentation(image)
-                # Save labeled image
-                imsave(labeled_path, labeled.astype(np.int16))
+                    image = image.astype('uint16')
+                    labeled = run_segmentation(image)
+
+                    # Save labeled image
+                    labeled_path = os.path.join(outdir, "%s_labeled.png"%img.split('.')[0])
+                    imsave(labeled_path, labeled.astype(np.int16))
+                else:
+                    labeled_imagepath = os.path.join(labeled_dir, '%s_labeled.tiff' % img.split('-')[0])
+                    print(img, labeled_imagepath)
+                    labeled = imread(labeled_imagepath)
+                    print('\tlabeled', labeled.shape)
                 measurements = regionprops(labeled, intensity_image=green)
-
-                # Save image array
-                s = 32  # cell dimension is 64x64
-                for i in range(len(measurements)):
-                    centroid = measurements[i].centroid
-                    center_x = int(centroid[1])
-                    center_y = int(centroid[0])
-                    loc_left = center_x - s
-                    loc_upper = center_y - s
-                    loc_right = center_x + s
-                    loc_lower = center_y + s
-
-                    if not_on_border(width, height, loc_left, loc_upper, loc_right, loc_lower):
-                        mean_intensity = round(measurements[i].mean_intensity, 2)
-                        image_names.append(img)
-                        frame_number.append(1)
-                        x_coord.append(center_x)
-                        y_coord.append(center_y)
-                        intensity.append(mean_intensity)
+                image_names, frame_number, x_coord, y_coord, intensity = save_image_array(measurements, img, 1, width, height, image_names,
+                                                                                          frame_number, x_coord, y_coord, intensity)
 
             else:
                 num_frames = len(green)
                 # Run segmentation on each frame
                 for frame in range(num_frames):
                     print('On image %s frame %d' % (img, (frame + 1)))
-                    labeled_path = os.path.join(outdir, "%s_%d_labeled.png" % (img.split('.')[0], frame+1))
 
                     # Size of full image
                     width, height = image_red[frame].size
 
-                    # Run mixture model to find foreground, background and middleground pixel clusters
-                    image = red[frame]
-                    if opt_blur == 'True':
-                        image = preprocessed_image[frame]
+                    if not labeled_dir:
+                        # Run mixture model to find foreground, background and middleground pixel clusters
+                        image = red[frame]
+                        if opt_blur == 'True':
+                            image = preprocessed_image[frame]
 
-                    image = image.astype('uint16')
-                    labeled = run_segmentation(image)
-                    # Save labeled image
-                    imsave(labeled_path, labeled.astype(np.int16))
+                        image = image.astype('uint16')
+                        labeled = run_segmentation(image)
+
+                        # Save labeled image
+                        labeled_path = os.path.join(outdir, "%s_%d_labeled.png"%(img.split('.')[0], frame + 1))
+                        imsave(labeled_path, labeled.astype(np.int16))
+                    else:
+                        labeled_imagepath = os.path.join(labeled_dir, '%s_labeled.tiff'%img.split('-')[0])
+                        print(img, labeled_imagepath)
+                        labeled = imread(labeled_imagepath)
+                        print('\tlabeled', labeled.shape)
                     measurements = regionprops(labeled, intensity_image=green)
-
-                    # Save image array
-                    s = 32  # cell dimension is 64x64
-                    for i in range(len(measurements)):
-                        centroid = measurements[i].centroid
-                        center_x = centroid[1]
-                        center_y = centroid[0]
-                        loc_left = center_x - s
-                        loc_upper = center_y - s
-                        loc_right = center_x + s
-                        loc_lower = center_y + s
-
-                        if not_on_border(width, height, loc_left, loc_upper, loc_right, loc_lower):
-                            mean_intensity = round(measurements[i].mean_intensity, 2)
-                            image_names.append(img)
-                            frame_number.append(frame + 1)
-                            x_coord.append(center_x)
-                            y_coord.append(center_y)
-                            intensity.append(mean_intensity)
+                    image_names, frame_number, x_coord, y_coord, intensity = save_image_array(measurements, img, frame+1, width, height, image_names,
+                                                                                              frame_number, x_coord, y_coord, intensity)
         else:
             print('Skipping file %s' % img)
 
@@ -578,12 +579,14 @@ def main():
                         help="Choose option to save predictions: 'well', 'cell' or 'both'. Default is 'both'")
     parser.add_argument("-b", "--blur", action="store", dest='blur', default="False",
                         help="Use this flag if you want to use the blur function for segmenting the input images. Default is False.")
+    parser.add_argument("-l", "--labeled-path", action="store", dest='labeled_path', default="",
+                        help="Path containing labeled images. Use only if images are already segmented.")
 
     args = parser.parse_args()
 
     # Define global variables
     global model, input_images, outdir, plate, img_type, timepoint, opt_save, opt_blur, localizationTerms, numClasses
-    global rc_phenix, rc_tiff, model_ckpt, localizations, SCREEN_NUMCHANNELS
+    global rc_phenix, rc_tiff, model_ckpt, localizations, SCREEN_NUMCHANNELS, crop_halfsize
 
     model = args.model.lower()
     input_images = args.input_images
@@ -597,9 +600,11 @@ def main():
     farred = args.farred
     opt_save = args.save
     opt_blur = args.blur
+    labeled_path = args.labeled_path
 
     rc_phenix = re.compile('r([0-9]{2})c([0-9]{2})f.+-ch[0-9]sk([0-9])fk.+')
     rc_tiff = re.compile('([0-9]{3})([0-9]{3})[0-9]{3}')
+    crop_halfsize = 32
 
     if model=='chong':
         model_ckpt = '/path/to/DUB_Biology/pretrained_models/chong_model.ckpt-5000'
@@ -634,7 +639,7 @@ def main():
         identifiers = None
         map_df = None
 
-    dataframe = getCoordinates(row_images, farred, SCREEN_NUMCHANNELS)
+    dataframe = getCoordinates(row_images, labeled_path, farred, SCREEN_NUMCHANNELS)
     getPredictions(dataframe, outdir, outfile, mainrow, identifiers, map_df)
 
     print('Done processing!')
